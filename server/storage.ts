@@ -18,7 +18,10 @@ import { eq, and, gte, lte, isNull, desc } from "drizzle-orm";
 export interface IStorage {
   getStudents(): Promise<Student[]>;
   getStudent(id: number): Promise<Student | undefined>;
+  getStudentByRfidUid(rfidUid: string): Promise<Student | undefined>;
   createStudent(student: InsertStudent): Promise<Student>;
+  updateStudent(id: number, student: InsertStudent): Promise<Student>;
+  deleteStudent(id: number): Promise<void>;
   
   getClasses(): Promise<Class[]>;
   getClass(id: number): Promise<Class | undefined>;
@@ -27,14 +30,18 @@ export interface IStorage {
   deleteClass(id: number): Promise<void>;
   
   getLoginLogout(studentId: number): Promise<LoginLogout[]>;
+  getAllLoginLogout(): Promise<(LoginLogout & { student: Student })[]>;
   getActiveSession(studentId: number): Promise<LoginLogout | undefined>;
   createLoginLogout(loginLogout: InsertLoginLogout): Promise<LoginLogout>;
   updateLogoutTime(id: number, logoutTime: Date): Promise<LoginLogout>;
   
   getAttendanceByStudent(studentId: number): Promise<Attendance[]>;
   getAttendanceByClass(classId: number): Promise<Attendance[]>;
+  getAttendance(id: number): Promise<Attendance | undefined>;
   createAttendance(attendance: InsertAttendance): Promise<Attendance>;
+  updateAttendance(id: number, attendance: Partial<InsertAttendance>): Promise<Attendance>;
   updateAttendanceStatus(id: number, status: string): Promise<Attendance>;
+  deleteAttendance(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -47,12 +54,30 @@ export class DatabaseStorage implements IStorage {
     return student || undefined;
   }
 
+  async getStudentByRfidUid(rfidUid: string): Promise<Student | undefined> {
+    const [student] = await db.select().from(students).where(eq(students.rfidUid, rfidUid));
+    return student || undefined;
+  }
+
   async createStudent(insertStudent: InsertStudent): Promise<Student> {
     const [student] = await db
       .insert(students)
       .values(insertStudent)
       .returning();
     return student;
+  }
+
+  async updateStudent(id: number, insertStudent: InsertStudent): Promise<Student> {
+    const [student] = await db
+      .update(students)
+      .set(insertStudent)
+      .where(eq(students.id, id))
+      .returning();
+    return student;
+  }
+
+  async deleteStudent(id: number): Promise<void> {
+    await db.delete(students).where(eq(students.id, id));
   }
 
   async getClasses(): Promise<Class[]> {
@@ -91,6 +116,31 @@ export class DatabaseStorage implements IStorage {
       .from(loginLogout)
       .where(eq(loginLogout.studentId, studentId))
       .orderBy(desc(loginLogout.loginTime));
+  }
+
+  async getAllLoginLogout(): Promise<(LoginLogout & { student: Student })[]> {
+    const records = await db
+      .select({
+        id: loginLogout.id,
+        studentId: loginLogout.studentId,
+        loginTime: loginLogout.loginTime,
+        logoutTime: loginLogout.logoutTime,
+        student: students,
+      })
+      .from(loginLogout)
+      .leftJoin(students, eq(loginLogout.studentId, students.id))
+      .orderBy(desc(loginLogout.loginTime));
+    
+    // Filter out records where student is null and type assert
+    return records
+      .filter((r): r is typeof records[0] & { student: Student } => r.student !== null)
+      .map((r) => ({
+        id: r.id,
+        studentId: r.studentId,
+        loginTime: r.loginTime,
+        logoutTime: r.logoutTime,
+        student: r.student,
+      })) as (LoginLogout & { student: Student })[];
   }
 
   async getActiveSession(studentId: number): Promise<LoginLogout | undefined> {
@@ -140,10 +190,24 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(attendance.date));
   }
 
+  async getAttendance(id: number): Promise<Attendance | undefined> {
+    const [record] = await db.select().from(attendance).where(eq(attendance.id, id));
+    return record || undefined;
+  }
+
   async createAttendance(insertAttendance: InsertAttendance): Promise<Attendance> {
     const [record] = await db
       .insert(attendance)
       .values(insertAttendance)
+      .returning();
+    return record;
+  }
+
+  async updateAttendance(id: number, attendanceData: Partial<InsertAttendance>): Promise<Attendance> {
+    const [record] = await db
+      .update(attendance)
+      .set(attendanceData)
+      .where(eq(attendance.id, id))
       .returning();
     return record;
   }
@@ -155,6 +219,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(attendance.id, id))
       .returning();
     return record;
+  }
+
+  async deleteAttendance(id: number): Promise<void> {
+    await db.delete(attendance).where(eq(attendance.id, id));
   }
 }
 

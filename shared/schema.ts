@@ -9,6 +9,7 @@ export const students = pgTable("students", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   role: text("role").notNull().default("student"),
+  rfidUid: text("rfid_uid").unique(),
 });
 
 export const classes = pgTable("classes", {
@@ -70,6 +71,8 @@ export const attendanceRelations = relations(attendance, ({ one }) => ({
 export const insertStudentSchema = createInsertSchema(students).omit({
   id: true,
   role: true,
+}).extend({
+  rfidUid: z.string().optional().nullable(),
 });
 
 export const insertClassSchema = createInsertSchema(classes).omit({

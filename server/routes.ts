@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { students, classes, loginLogout, attendance } from "@shared/schema";
-import { insertStudentSchema, insertClassSchema, insertLoginLogoutSchema } from "@shared/schema";
+import { insertStudentSchema, insertClassSchema, insertLoginLogoutSchema, insertAttendanceSchema } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -23,6 +23,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(student);
     } catch (error) {
       res.status(400).json({ message: "Invalid student data" });
+    }
+  });
+
+  app.patch("/api/students/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertStudentSchema.parse(req.body);
+      const student = await storage.updateStudent(id, validatedData);
+      res.json(student);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update student" });
+    }
+  });
+
+  app.delete("/api/students/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteStudent(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete student" });
     }
   });
 
@@ -122,6 +143,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/activity", async (req, res) => {
+    try {
+      const activityRecords = await storage.getAllLoginLogout();
+      res.json(activityRecords);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch activity" });
+    }
+  });
+
   app.get("/api/attendance/student/:studentId", async (req, res) => {
     try {
       const studentId = parseInt(req.params.studentId);
@@ -170,19 +200,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/attendance/all", async (req, res) => {
+    try {
+      const attendanceRecords = await db
+        .select({
+          id: attendance.id,
+          studentId: attendance.studentId,
+          classId: attendance.classId,
+          date: attendance.date,
+          status: attendance.status,
+          loginLogoutId: attendance.loginLogoutId,
+          student: students,
+          class: classes,
+        })
+        .from(attendance)
+        .leftJoin(students, eq(attendance.studentId, students.id))
+        .leftJoin(classes, eq(attendance.classId, classes.id))
+        .orderBy(attendance.date);
+
+      res.json(attendanceRecords);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch attendance" });
+    }
+  });
+
+  app.post("/api/attendance", async (req, res) => {
+    try {
+      // Convert date string to Date object if provided as string
+      const body = { ...req.body };
+      if (body.date && typeof body.date === 'string') {
+        body.date = new Date(body.date);
+      }
+      const validatedData = insertAttendanceSchema.parse(body);
+      const attendanceRecord = await storage.createAttendance(validatedData);
+      res.json(attendanceRecord);
+    } catch (error: any) {
+      console.error("Attendance creation error:", error);
+      res.status(400).json({ 
+        message: "Invalid attendance data",
+        error: error.errors || error.message 
+      });
+    }
+  });
+
   app.patch("/api/attendance/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { status } = req.body;
+      const { status, date, studentId, classId, loginLogoutId } = req.body;
       
-      if (!status || (status !== "present" && status !== "absent")) {
-        return res.status(400).json({ message: "Invalid status" });
+      // Allow updating multiple fields
+      const updateData: any = {};
+      if (status !== undefined) {
+        if (status !== "present" && status !== "absent" && status !== "late") {
+          return res.status(400).json({ message: "Invalid status. Must be 'present', 'absent', or 'late'" });
+        }
+        updateData.status = status;
       }
+      if (date !== undefined) {
+        // Convert date string to Date object if provided as string
+        updateData.date = typeof date === 'string' ? new Date(date) : date;
+      }
+      if (studentId !== undefined) updateData.studentId = studentId;
+      if (classId !== undefined) updateData.classId = classId;
+      if (loginLogoutId !== undefined) updateData.loginLogoutId = loginLogoutId;
 
-      const updatedAttendance = await storage.updateAttendanceStatus(id, status);
+      const updatedAttendance = await storage.updateAttendance(id, updateData);
       res.json(updatedAttendance);
+    } catch (error: any) {
+      console.error("Attendance update error:", error);
+      res.status(500).json({ 
+        message: "Failed to update attendance",
+        error: error.message 
+      });
+    }
+  });
+
+  app.delete("/api/attendance/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteAttendance(id);
+      res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ message: "Failed to update attendance" });
+      res.status(500).json({ message: "Failed to delete attendance" });
     }
   });
 
@@ -210,14 +309,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const classEndTime = new Date(loginTime);
       classEndTime.setHours(endHours, endMinutes, 0, 0);
 
-      if (loginTime <= classStartTime && logoutTime >= classStartTime) {
-        await storage.createAttendance({
-          studentId,
-          classId: classItem.id,
-          date: classStartTime,
-          status: "present",
-          loginLogoutId,
-        });
+      // Check if student was logged in during class time
+      // AND was logged in for at least 30 seconds
+      const sessionDurationMs = logoutTime.getTime() - loginTime.getTime();
+      const minSessionDurationMs = 30 * 1000; // 30 seconds in milliseconds
+      
+      // Check if session overlaps with class time:
+      // - Student logged in before or during class AND
+      // - Student logged out after class started AND
+      // - Session duration is at least 30 seconds
+      const wasLoggedInDuringClass = loginTime <= classEndTime && logoutTime >= classStartTime;
+      
+      if (wasLoggedInDuringClass && sessionDurationMs >= minSessionDurationMs) {
+        // Check if attendance record already exists to avoid duplicates
+        const existingAttendance = await storage.getAttendanceByStudent(studentId);
+        const alreadyExists = existingAttendance.some(
+          (att) => att.classId === classItem.id && 
+                   att.date.toISOString().split('T')[0] === classStartTime.toISOString().split('T')[0] &&
+                   att.loginLogoutId === loginLogoutId
+        );
+        
+        if (!alreadyExists) {
+          await storage.createAttendance({
+            studentId,
+            classId: classItem.id,
+            date: classStartTime,
+            status: "present",
+            loginLogoutId,
+          });
+        }
       }
     }
   }

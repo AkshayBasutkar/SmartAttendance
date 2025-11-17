@@ -1,14 +1,12 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { CheckCircle2, XCircle, Clock, LogOut, Calendar, TrendingUp, GraduationCap } from "lucide-react";
+import { CheckCircle2, XCircle, LogOut, Calendar, TrendingUp, GraduationCap } from "lucide-react";
 import type { Student, Class, Attendance } from "@shared/schema";
 
 interface AttendanceWithClass extends Attendance {
@@ -17,7 +15,6 @@ interface AttendanceWithClass extends Attendance {
 
 export default function StudentDashboard() {
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
 
   const { data: students, isLoading: studentsLoading } = useQuery<Student[]>({
@@ -29,34 +26,6 @@ export default function StudentDashboard() {
     enabled: !!selectedStudentId,
   });
 
-  const { data: currentSession } = useQuery<{ isLoggedIn: boolean; loginTime?: string }>({
-    queryKey: ["/api/student/session", selectedStudentId],
-    enabled: !!selectedStudentId,
-  });
-
-  const loginMutation = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/student/${selectedStudentId}/login`, {}),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/student/session", selectedStudentId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance/student", selectedStudentId] });
-      toast({
-        title: "Logged In",
-        description: "Your attendance is now being tracked",
-      });
-    },
-  });
-
-  const logoutMutation = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/student/${selectedStudentId}/logout`, {}),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/student/session", selectedStudentId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance/student", selectedStudentId] });
-      toast({
-        title: "Logged Out",
-        description: "Your attendance has been recorded",
-      });
-    },
-  });
 
   const selectedStudent = students?.find(s => s.id.toString() === selectedStudentId);
 
@@ -127,41 +96,7 @@ export default function StudentDashboard() {
                 <h2 className="text-2xl font-bold">My Attendance</h2>
                 <p className="text-muted-foreground">Track your class attendance and participation</p>
               </div>
-              {currentSession?.isLoggedIn ? (
-                <Button
-                  variant="destructive"
-                  onClick={() => logoutMutation.mutate()}
-                  disabled={logoutMutation.isPending}
-                  data-testid="button-logout-session"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Log Out
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => loginMutation.mutate()}
-                  disabled={loginMutation.isPending}
-                  data-testid="button-login-session"
-                >
-                  <Clock className="w-4 h-4 mr-2" />
-                  Log In
-                </Button>
-              )}
             </div>
-
-            {currentSession?.isLoggedIn && (
-              <Card className="bg-primary/5 border-primary/20">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Clock className="w-4 h-4 text-primary" />
-                    <span className="font-medium">Currently Logged In</span>
-                    <span className="text-muted-foreground">
-                      since {new Date(currentSession.loginTime!).toLocaleTimeString()}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
             <div className="grid gap-4 md:grid-cols-3">
               <Card>

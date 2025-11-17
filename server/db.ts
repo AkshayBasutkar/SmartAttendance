@@ -1,9 +1,10 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import 'dotenv/config';
 import * as schema from "@shared/schema";
-
-neonConfig.webSocketConstructor = ws;
+import { Pool as PgPool } from 'pg';
+import { drizzle as drizzleNodePostgres } from 'drizzle-orm/node-postgres';
+import { Pool as NeonPool, neonConfig } from '@neondatabase/serverless';
+import { drizzle as drizzleNeonServerless } from 'drizzle-orm/neon-serverless';
+import ws from 'ws';
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -11,5 +12,22 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+// Detect if it's a local database or Neon serverless database
+const databaseUrl = process.env.DATABASE_URL;
+const isLocalDatabase = databaseUrl.includes('localhost') || databaseUrl.includes('127.0.0.1') || databaseUrl.includes('5432');
+
+let db: ReturnType<typeof drizzleNodePostgres> | ReturnType<typeof drizzleNeonServerless>;
+let pool: PgPool | NeonPool;
+
+if (isLocalDatabase) {
+  // Use standard PostgreSQL driver for local databases
+  pool = new PgPool({ connectionString: databaseUrl });
+  db = drizzleNodePostgres({ client: pool, schema });
+} else {
+  // Use Neon serverless driver for remote databases
+  neonConfig.webSocketConstructor = ws;
+  pool = new NeonPool({ connectionString: databaseUrl });
+  db = drizzleNeonServerless({ client: pool, schema });
+}
+
+export { pool, db };
