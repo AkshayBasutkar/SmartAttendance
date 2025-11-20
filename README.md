@@ -9,6 +9,7 @@ A comprehensive full-stack web application for educational institutions to manag
 - 📖 **[Project Overview](PROJECT_OVERVIEW.md)** - Comprehensive introduction explaining what SmartAttendance is, why it was built, and how it works
 - 🏗️ **[System Architecture](ARCHITECTURE.md)** - Detailed system design with diagrams showing all components and data flow
 - 🔄 **[Workflow Guide](WORKFLOW.md)** - Step-by-step workflows for teachers, students, and system processes
+- 🛠️ **[Hardware Setup Guide](HARDWARE_SETUP.md)** - Complete hardware assembly guide with circuit diagrams and shopping list
 - 🔌 **[Arduino Setup Guide](ARDUINO_SETUP.md)** - Complete guide to setting up the ESP32 RFID scanner (includes sketch.ino explanation)
 - 🏷️ **[RFID Integration](RFID_INTEGRATION.md)** - Quick start guide for RFID hardware setup
 - 🎨 **[Design Guidelines](design_guidelines.md)** - UI/UX design principles and component specifications
@@ -16,7 +17,7 @@ A comprehensive full-stack web application for educational institutions to manag
 **Quick Links:**
 - New users → [Project Overview](PROJECT_OVERVIEW.md)
 - Developers → [System Architecture](ARCHITECTURE.md)
-- Hardware setup → [Arduino Setup Guide](ARDUINO_SETUP.md)
+- Hardware setup → [Hardware Setup Guide](HARDWARE_SETUP.md) + [Arduino Setup Guide](ARDUINO_SETUP.md)
 - Understanding processes → [Workflow Guide](WORKFLOW.md)
 
 ## 🌟 Features
