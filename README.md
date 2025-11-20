@@ -2,6 +2,23 @@
 
 A comprehensive full-stack web application for educational institutions to manage and track student attendance with automated RFID integration. The system features separate portals for students and teachers, with automatic attendance calculation based on login/logout times and scheduled class periods.
 
+## 📚 Complete Documentation
+
+**New to this project? Start here:**
+
+- 📖 **[Project Overview](PROJECT_OVERVIEW.md)** - Comprehensive introduction explaining what SmartAttendance is, why it was built, and how it works
+- 🏗️ **[System Architecture](ARCHITECTURE.md)** - Detailed system design with diagrams showing all components and data flow
+- 🔄 **[Workflow Guide](WORKFLOW.md)** - Step-by-step workflows for teachers, students, and system processes
+- 🔌 **[Arduino Setup Guide](ARDUINO_SETUP.md)** - Complete guide to setting up the ESP32 RFID scanner (includes sketch.ino explanation)
+- 🏷️ **[RFID Integration](RFID_INTEGRATION.md)** - Quick start guide for RFID hardware setup
+- 🎨 **[Design Guidelines](design_guidelines.md)** - UI/UX design principles and component specifications
+
+**Quick Links:**
+- New users → [Project Overview](PROJECT_OVERVIEW.md)
+- Developers → [System Architecture](ARCHITECTURE.md)
+- Hardware setup → [Arduino Setup Guide](ARDUINO_SETUP.md)
+- Understanding processes → [Workflow Guide](WORKFLOW.md)
+
 ## 🌟 Features
 
 ### For Students
