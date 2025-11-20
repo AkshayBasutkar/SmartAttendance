@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Pencil, Trash2, Users, LogOut, BookOpen, Clock, Calendar, GraduationCap, CheckSquare, Activity, LogIn } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, LogOut, BookOpen, Clock, Calendar, GraduationCap, CheckSquare, Activity, LogIn, RefreshCw } from "lucide-react";
 import type { Class, Student, Attendance, LoginLogout } from "@shared/schema";
 import { insertClassSchema, insertStudentSchema, insertAttendanceSchema } from "@shared/schema";
 import { z } from "zod";
@@ -88,7 +88,7 @@ export default function TeacherDashboard() {
     enabled: activeTab === "attendance", // Only fetch when attendance tab is active
   });
 
-  const { data: activityRecords, isLoading: activityLoading } = useQuery<ActivityRecord[]>({
+  const { data: activityRecords, isLoading: activityLoading, refetch: refetchActivity } = useQuery<ActivityRecord[]>({
     queryKey: ["/api/activity"],
     enabled: activeTab === "activity", // Only fetch when activity tab is active
   });
@@ -764,6 +764,15 @@ export default function TeacherDashboard() {
                   <h2 className="text-2xl font-bold">Student Activity</h2>
                   <p className="text-muted-foreground">View login and logout events</p>
                 </div>
+                <Button
+                  onClick={() => refetchActivity()}
+                  variant="outline"
+                  disabled={activityLoading}
+                  data-testid="button-refresh-activity"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${activityLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
               </div>
 
               {activityLoading ? (
